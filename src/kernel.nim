@@ -1,4 +1,12 @@
+import dynlib
+import math
 import sdl2
+
+type posFunc = proc(t: float): float {.gcsafe, stdcall.}
+
+let lib = loadLib("testlib.dll")
+assert lib != nil
+let getPos = cast[posFunc](lib.symAddr("positionForTime"))
 
 proc main() =
     discard sdl2.init(INIT_EVERYTHING)
@@ -17,7 +25,7 @@ proc main() =
         destroy render
 
     var runGame = true
-    var t = 0
+    var t = 0.0
 
     while runGame:
         var evt = sdl2.defaultEvent
@@ -36,16 +44,22 @@ proc main() =
             else:
                 discard
 
-        inc t
+        t += 1.0 / 60.0
 
-        render.setDrawColor t.uint8, 0, 0, 255
+        let r = uint8(128 + 127 * sin(t * 3))
+        render.setDrawColor r, 0, 0, 255
         render.clear
 
         render.setDrawColor 0, 255, 255, 255
-        var r = rect(20, 20, 80, 80)
-        render.fillRect r
+        var rec = rect(20, 20, 80, 80)
+        render.fillRect rec
+
+        render.setDrawColor 128, 64, 255, 255
+        let y = getPos(t).cint
+        var rec2 = rect(120, y, 80, 80)
+        render.fillRect rec2
 
         render.present
 
-echo "Helo wrerl"
+echo "Helo werl"
 main()
