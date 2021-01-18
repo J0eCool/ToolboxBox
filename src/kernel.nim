@@ -2,11 +2,18 @@ import dynlib
 import math
 import sdl2
 
-type posFunc = proc(t: float): float {.gcsafe, stdcall.}
+import vec
+
+type
+    posFunc = proc(t: float): Vec {.cdecl.}
 
 let lib = loadLib("testlib.dll")
 assert lib != nil
 let getPos = cast[posFunc](lib.symAddr("positionForTime"))
+
+proc drawBox(render: RendererPtr, pos, size: Vec) =
+    var rec = rect(pos.x.cint, pos.y.cint, size.x.cint, size.y.cint)
+    render.fillRect rec
 
 proc main() =
     discard sdl2.init(INIT_EVERYTHING)
@@ -51,13 +58,11 @@ proc main() =
         render.clear
 
         render.setDrawColor 0, 255, 255, 255
-        var rec = rect(20, 20, 80, 80)
-        render.fillRect rec
+        render.drawBox(vec(20, 20), vec(80, 80))
 
         render.setDrawColor 128, 64, 255, 255
-        let y = getPos(t).cint
-        var rec2 = rect(120, y, 80, 80)
-        render.fillRect rec2
+        let pos = getPos(t)
+        render.drawBox(pos, vec(80, 80))
 
         render.present
 
