@@ -2,6 +2,10 @@ run: out/kernel.exe out/testlib.dll
 	out/kernel.exe
 .PHONY: run
 
+clean:
+	rm -rf out/
+.PHONY: clean
+
 out/kernel.exe: src/kernel.nim
 	nim c -o:out/kernel.exe src/kernel.nim
 
