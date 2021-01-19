@@ -1,4 +1,4 @@
-import math
+# import math
 
 type Vec* = object
     x*: float
