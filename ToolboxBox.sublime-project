@@ -1,0 +1,13 @@
+{
+    "folders": [{
+       "path": ".",
+        "file_exclude_patterns": [
+            "out/",
+        ],
+    }],
+    "build_systems": [{
+        "name": "Make - Run",
+        "cmd": ["mingw32-make", "run"],
+        "working_dir": "$project_path",
+    }],
+}
