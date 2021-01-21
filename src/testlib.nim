@@ -2,39 +2,47 @@ import math
 
 import vec
 
+# ---------------------------------
+# hopefully can autogen this stuff from IDL
 
-# {.pragma:expfunc, cdecl, exportc, dynlib.}
-# {.pragma impfunc: cdecl.}
+{.pragma:expfunc, cdecl, exportc, dynlib.}
+{.pragma:impfunc, cdecl.}
 
 type
-    Renderer = ptr object
-    Imports = ptr object
-        allocate: proc(t: Natural): pointer {.cdecl.}
-        drawBox: proc(imports: Imports, pos, size: Vec) {.cdecl.}
+    # kernel stuff for initialization
+    Handle = distinct int
+    Loader = ptr object
+        allocate: proc(hnd: Handle, size: Natural): pointer {.impfunc.}
+        register: proc(module: pointer, name: string, f: pointer) {.impfunc.}
 
+    # foreign module
+    Renderer = ptr object
+        drawBox_ptr: proc(renderer: Renderer, pos, size: Vec) {.impfunc.}
+
+    # this module
     Context = ptr ContextObj
     ContextObj = object
         update: proc(ctx: Context, t: float) {.cdecl.}
         # private field comes after exports (yikes)
-        imports: Imports
+        renderer: Renderer
 
-# forward declaration
+# convenience methods
+proc drawBox(renderer: Renderer, pos, size: Vec) =
+    renderer.drawBox_ptr(renderer, pos, size)
+
+# forward declarations
 proc update(ctx: Context, t: float) {.cdecl.}
 
-proc initialize(imports: Imports): Context {.cdecl, exportc, dynlib.} =
-    # going to need to rethink actual import object as a lookup for procs,
-    # rather than a raw struct, because we don't want this to be sensitive to
-    # pointer layout, and also we want to be able to only use a subset of the
-    # passed-in library
-    result = cast[Context](imports.allocate(sizeof(ContextObj)))
-    result.imports = imports
-    result.update = update
+proc initialize(hnd: Handle, loader: Loader, renderer: Renderer): Context {.expfunc.} =
+    result = cast[Context](loader.allocate(hnd, sizeof(Context)))
+    result.renderer = renderer
+    loader.register(result, "update", update)
 
+# end autogen
 # ---------------------------------
-# hopefully can autogen above stuff
 
 proc update(ctx: Context, t: float) {.cdecl.} =
     let pos = vec(120 + 10 * cos(5 * t), 200 + 100 * sin(t))
-    ctx.imports.drawBox(ctx.imports, pos, vec(40, 40))
+    ctx.renderer.drawBox(pos, vec(40, 40))
 
-    ctx.imports.drawBox(ctx.imports, vec(300, 30), vec(40, 40))
+    ctx.renderer.drawBox(vec(300, 30), vec(40, 40))
