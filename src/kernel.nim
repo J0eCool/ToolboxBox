@@ -1,35 +1,63 @@
 import dynlib
 import math
 import sdl2
+import tables
 
 import vec
 
 type
-    Context = ptr ContextObj
-    ContextObj = object
-        allocate: proc(t: Natural): pointer {.cdecl.}
-        drawBox: proc(ctx: Context, pos, size: Vec) {.cdecl.}
-        # private-ish var
+    Handle = distinct int
+    ModuleCollection = object
+        nextHandleId: int
+        privateData: Table[Handle, pointer]
+        funcTable: Table[Handle, Table[string, pointer]]
+
+    ModuleDesc = object
+        funcs: Table[string, pointer]
+
+    # module modeling kernel loader code
+    Loader = ptr LoaderObj
+    LoaderObj = object
+        allocate: proc(hnd: Handle, t: Natural): pointer {.cdecl.}
+        register: proc(module: Handle, name: cstring, f: pointer) {.cdecl.}
+        lookup: proc(hnd: Handle, name: cstring): pointer {.cdecl.}
+
+    RenderModule = ptr RenderModuleObj
+    RenderModuleObj = object
+        # holds private data; is not passed directly to modules
         render: RendererPtr
 
+    # test library
     Library = ptr object
         update: proc(lib: Library, t: float) {.cdecl.}
 
-proc allocate(size: Natural): pointer {.cdecl.} =
-    alloc(size)
+var collection = ModuleCollection()
+
+proc `==`(a, b: Handle): bool {.borrow.}
+
+proc newHandle(): Handle =
+    result = Handle(collection.nextHandleId)
+    inc collection.nextHandleId
+
+proc allocate(handle: Handle, size: Natural): pointer {.cdecl.} =
+    # might use the handle to do tracking of stuff later, heck
+    result = alloc(size)
+    collection.privateData[handle] = result
+    collection.funcTable[handle] = Table[string, pointer]()
+
+proc register(handle: Handle, name: cstring, f: pointer) {.cdecl.} =
+    collection.funcTable[handle][$name] = f
+
+proc lookup(handle: Handle, name: cstring): pointer {.cdecl.} =
+    collection.funcTable[handle][$name]
 
 proc drawBox(render: RendererPtr, pos, size: Vec) =
     var rec = rect(pos.x.cint, pos.y.cint, size.x.cint, size.y.cint)
     render.fillRect rec
 
-proc drawWrapBox(ctx: Context, pos, size: Vec) {.cdecl.} =
-    ctx.render.drawBox(pos, size)
-
-proc initialize(render: RendererPtr): Context =
-    result = cast[Context](allocate(sizeof(ContextObj)))
-    result.allocate = allocate
-    result.drawBox = drawWrapBox
-    result.render = render
+proc drawWrapBox(handle: Handle, pos, size: Vec) {.cdecl.} =
+    let module = cast[RenderModule](collection.privateData[handle])
+    module.render.drawBox(pos, size)
 
 proc main() =
     # set up sdl and window and such
@@ -48,14 +76,29 @@ proc main() =
     defer:
         destroy render
 
-    # set up self module
-    let ctx = initialize(render)
+    # kernel tracking stuff
+    let loader = cast[Loader](alloc(sizeof(LoaderObj)))
+    loader.allocate = allocate
+    loader.register = register
+    loader.lookup = lookup
+
+    # set up renderer module
+    let rendererHandle = newHandle()
+    let rendererData = cast[RenderModule](loader.allocate(rendererHandle, sizeof(RenderModuleObj)))
+    rendererData.render = render
+    loader.register(rendererHandle, "drawBox", drawWrapBox)
 
     # do dll loady things
     let libDll = loadLib("testlib.dll")
     assert libDll != nil
-    let libInit = cast[proc(ctx: Context): Library {.cdecl.}](libDll.symAddr("initialize"))
-    let module = libInit(ctx)
+    type initializeProc = proc(hnd: Handle, loader: Loader, imports: pointer): Library {.cdecl.}
+    let libInit = cast[initializeProc](libDll.symAddr("initialize"))
+    let libHandle = newHandle()
+    let libImports = cast[ptr UncheckedArray[Handle]](alloc(1 * sizeof(Handle)))
+    libImports[0] = rendererHandle
+    let module = libInit(libHandle, loader, libImports)
+    dealloc(libImports)
+    let moduleUpdate = cast[proc(module: pointer, t: float) {.cdecl.}](lookup(libHandle, "update"))
 
     # run loop, logic
     var runGame = true
@@ -88,7 +131,7 @@ proc main() =
         render.drawBox(vec(20, 20), vec(80, 80))
 
         render.setDrawColor 128, 64, 255, 255
-        module.update(module, t)
+        moduleUpdate(module, t)
 
         render.present
 
