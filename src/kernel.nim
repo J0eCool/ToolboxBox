@@ -98,7 +98,7 @@ proc main() =
     libImports[0] = rendererHandle
     let module = libInit(libHandle, loader, libImports)
     dealloc(libImports)
-    let moduleUpdate = cast[proc(module: pointer, t: float) {.cdecl.}](lookup(libHandle, "update"))
+    let moduleUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(libHandle, "update"))
 
     # run loop, logic
     var runGame = true
@@ -131,7 +131,7 @@ proc main() =
         render.drawBox(vec(20, 20), vec(80, 80))
 
         render.setDrawColor 128, 64, 255, 255
-        moduleUpdate(module, t)
+        moduleUpdate(libHandle, t)
 
         render.present
 
