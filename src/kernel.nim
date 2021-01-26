@@ -13,7 +13,11 @@ import vec
 type
     ModuleCollection = object
         nextHandleId: int
+        # data for individual allocated instances
+        # tracked in order to have a shot at freeing this memory in the future
         privateData: Table[Handle, pointer]
+        # table of function pointers
+        # TODO: make this per-dll, not per-instance
         funcTable: Table[Handle, Table[string, pointer]]
 
     ModuleDesc = object
@@ -41,14 +45,6 @@ proc register(handle: Handle, name: cstring, f: pointer) {.cdecl.} =
 proc lookup(handle: Handle, name: cstring): pointer {.cdecl.} =
     collection.funcTable[handle][$name]
 
-proc drawBox(render: RendererPtr, pos, size: Vec) =
-    var rec = rect(pos.x.cint, pos.y.cint, size.x.cint, size.y.cint)
-    render.fillRect rec
-
-proc drawWrapBox(handle: Handle, pos, size: Vec) {.cdecl.} =
-    let module = cast[GraphicsModule](collection.privateData[handle])
-    module.render.drawBox(pos, size)
-
 proc main() =
     # set up sdl and window and such
     discard sdl2.init(INIT_EVERYTHING)
@@ -64,7 +60,6 @@ proc main() =
     let graphics = graphics.initialize(graphicsHandle, loader, nil)
     graphics.start()
     defer: graphics.cleanup()
-    loader.register(graphicsHandle, "drawBox", drawWrapBox)
 
     # do dll loady things
     let libDll = loadLib("testlib.dll")
@@ -107,7 +102,7 @@ proc main() =
         graphics.render.clear
 
         graphics.render.setDrawColor 0, 255, 255, 255
-        graphics.render.drawBox(vec(20, 20), vec(80, 80))
+        graphics.drawBox(vec(20, 20), vec(80, 80))
 
         graphics.render.setDrawColor 128, 64, 255, 255
         moduleUpdate(libHandle, t)
