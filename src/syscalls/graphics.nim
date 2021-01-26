@@ -12,6 +12,7 @@ type
         window*: WindowPtr
         render*: RendererPtr
 
+# currently copy-pasting across system modules; maybe unify? maybe don't?
 var loadedModules: Table[Handle, GraphicsModule]
 proc lookup(handle: Handle): GraphicsModule =
     result = loadedModules[handle]

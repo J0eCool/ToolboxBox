@@ -61,6 +61,11 @@ proc main() =
     graphics.start()
     defer: graphics.cleanup()
 
+    let inputHandle = newHandle()
+    let input = input.initialize(inputHandle, loader, nil)
+    input.start()
+    defer: input.cleanup()
+
     # do dll loady things
     let libDll = loadLib("testlib.dll")
     assert libDll != nil
@@ -70,6 +75,7 @@ proc main() =
     let numImports = 2
     let libImports = cast[ptr UncheckedArray[Handle]](alloc(numImports * sizeof(Handle)))
     libImports[0] = graphicsHandle
+    libImports[1] = inputHandle
     let module = libInit(libHandle, loader, libImports)
     dealloc(libImports)
     let moduleUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(libHandle, "update"))
@@ -79,6 +85,7 @@ proc main() =
     var t = 0.0
 
     while runGame:
+        input.update()
         var evt = sdl2.defaultEvent
         while pollEvent(evt):
             case evt.kind
@@ -86,12 +93,12 @@ proc main() =
                 runGame = false
                 break
             of KeyDown:
-                case evt.key.keysym.sym
-                of K_ESCAPE:
+                if evt.key.keysym.sym == K_ESCAPE:
                     runGame = false
                     break
-                else:
-                    discard
+                input.onKeyDown(evt.key.keysym.sym)
+            of KeyUp:
+                input.onKeyUp(evt.key.keysym.sym)
             else:
                 discard
 

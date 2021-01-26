@@ -29,7 +29,8 @@ type
     Renderer = object
         drawBox: proc(renderer: Handle, pos, size: Vec) {.impfunc.}
     Input = object
-        isKeyDown: proc(input: Handle, key: char): bool {.impfunc.}
+        isKeyHeld: proc(input: Handle, key: char): bool {.impfunc.}
+        wasKeyPressed: proc(input: Handle, key: char): bool {.impfunc.}
 
     # this module
     Module = ptr ModuleObj
@@ -37,6 +38,8 @@ type
         imports: Imports
         renderer: Renderer
         input: Input
+
+        pos: Vec
 
 proc `==`(a, b: Handle): bool {.borrow.}
 
@@ -49,8 +52,10 @@ proc lookup(handle: Handle): Module =
 proc drawBox(module: Module, pos, size: Vec) =
     module.renderer.drawBox(module.imports.renderer, pos, size)
 
-proc isKeyDown(module: Module, key: char): bool =
-    module.input.isKeyDown(module.imports.input, key)
+proc isKeyHeld(module: Module, key: char): bool =
+    module.input.isKeyHeld(module.imports.input, key)
+proc wasKeyPressed(module: Module, key: char): bool =
+    module.input.wasKeyPressed(module.imports.input, key)
 
 # forward declarations + wrapper functions
 proc update(module: Module, t: float)
@@ -65,6 +70,12 @@ proc initialize(hnd: Handle, loader: Loader, imports: ptr Imports): Module {.exp
 
     result.renderer.drawBox = cast[proc(hnd: Handle, pos, size: Vec) {.impfunc.}](
         loader.lookup(imports.renderer, "drawBox"))
+    result.input.isKeyHeld = cast[proc(hnd: Handle, key: char): bool {.impfunc.}](
+        loader.lookup(imports.input, "isKeyHeld"))
+    result.input.wasKeyPressed = cast[proc(hnd: Handle, key: char): bool {.impfunc.}](
+        loader.lookup(imports.input, "wasKeyPressed"))
+
+    result.pos = vec(300, 30)
 
 # end autogen
 # ---------------------------------
@@ -73,4 +84,17 @@ proc update(module: Module, t: float) =
     let pos = vec(120 + 10 * cos(5 * t), 200 + 100 * sin(t))
     module.drawBox(pos, vec(40, 40))
 
-    module.drawBox(vec(300, 30), vec(40, 40))
+    let speed = 5.0
+    if module.isKeyHeld('a'):
+        module.pos.x -= speed
+    if module.isKeyHeld('d'):
+        module.pos.x += speed
+    if module.isKeyHeld('w'):
+        module.pos.y -= speed
+    if module.isKeyHeld('s'):
+        module.pos.y += speed
+
+    if module.wasKeyPressed('j'):
+        module.pos = module.pos + vec(50, 50)
+
+    module.drawBox(module.pos, vec(40, 40))
