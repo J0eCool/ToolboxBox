@@ -23,16 +23,20 @@ type
     # in order to call back correctly
     Imports = object
         renderer: Handle
+        input: Handle
 
     # foreign module
     Renderer = object
         drawBox: proc(renderer: Handle, pos, size: Vec) {.impfunc.}
+    Input = object
+        isKeyDown: proc(input: Handle, key: char): bool {.impfunc.}
 
     # this module
     Module = ptr ModuleObj
     ModuleObj = object
         imports: Imports
         renderer: Renderer
+        input: Input
 
 proc `==`(a, b: Handle): bool {.borrow.}
 
@@ -44,6 +48,9 @@ proc lookup(handle: Handle): Module =
 # convenience methods
 proc drawBox(module: Module, pos, size: Vec) =
     module.renderer.drawBox(module.imports.renderer, pos, size)
+
+proc isKeyDown(module: Module, key: char): bool =
+    module.input.isKeyDown(module.imports.input, key)
 
 # forward declarations + wrapper functions
 proc update(module: Module, t: float)

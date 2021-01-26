@@ -3,10 +3,14 @@ import math
 import sdl2
 import tables
 
+import syscalls/[
+    common,
+    graphics,
+    input,
+]
 import vec
 
 type
-    Handle = distinct int
     ModuleCollection = object
         nextHandleId: int
         privateData: Table[Handle, pointer]
@@ -15,25 +19,11 @@ type
     ModuleDesc = object
         funcs: Table[string, pointer]
 
-    # module modeling kernel loader code
-    Loader = ptr LoaderObj
-    LoaderObj = object
-        allocate: proc(hnd: Handle, t: Natural): pointer {.cdecl.}
-        register: proc(module: Handle, name: cstring, f: pointer) {.cdecl.}
-        lookup: proc(hnd: Handle, name: cstring): pointer {.cdecl.}
-
-    RenderModule = ptr RenderModuleObj
-    RenderModuleObj = object
-        # holds private data; is not passed directly to modules
-        render: RendererPtr
-
     # test library
     Library = ptr object
         update: proc(lib: Library, t: float) {.cdecl.}
 
 var collection = ModuleCollection()
-
-proc `==`(a, b: Handle): bool {.borrow.}
 
 proc newHandle(): Handle =
     result = Handle(collection.nextHandleId)
@@ -56,25 +46,12 @@ proc drawBox(render: RendererPtr, pos, size: Vec) =
     render.fillRect rec
 
 proc drawWrapBox(handle: Handle, pos, size: Vec) {.cdecl.} =
-    let module = cast[RenderModule](collection.privateData[handle])
+    let module = cast[GraphicsModule](collection.privateData[handle])
     module.render.drawBox(pos, size)
 
 proc main() =
     # set up sdl and window and such
     discard sdl2.init(INIT_EVERYTHING)
-
-    let (winW, winH) = (1200, 900)
-    let window = createWindow("ToolboxBox",
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        winW.cint, winH.cint, SDL_WINDOW_SHOWN)
-    defer:
-        destroy window
-
-    let renderFlags = (Renderer_Accelerated or Renderer_PresentVsync or
-        Renderer_TargetTexture)
-    let render = createRenderer(window, -1, renderFlags)
-    defer:
-        destroy render
 
     # kernel tracking stuff
     let loader = cast[Loader](alloc(sizeof(LoaderObj)))
@@ -82,11 +59,12 @@ proc main() =
     loader.register = register
     loader.lookup = lookup
 
-    # set up renderer module
-    let rendererHandle = newHandle()
-    let rendererData = cast[RenderModule](loader.allocate(rendererHandle, sizeof(RenderModuleObj)))
-    rendererData.render = render
-    loader.register(rendererHandle, "drawBox", drawWrapBox)
+    # set up graphics module
+    let graphicsHandle = newHandle()
+    let graphics = graphics.initialize(graphicsHandle, loader, nil)
+    graphics.start()
+    defer: graphics.cleanup()
+    loader.register(graphicsHandle, "drawBox", drawWrapBox)
 
     # do dll loady things
     let libDll = loadLib("testlib.dll")
@@ -94,8 +72,9 @@ proc main() =
     type initializeProc = proc(hnd: Handle, loader: Loader, imports: pointer): Library {.cdecl.}
     let libInit = cast[initializeProc](libDll.symAddr("initialize"))
     let libHandle = newHandle()
-    let libImports = cast[ptr UncheckedArray[Handle]](alloc(1 * sizeof(Handle)))
-    libImports[0] = rendererHandle
+    let numImports = 2
+    let libImports = cast[ptr UncheckedArray[Handle]](alloc(numImports * sizeof(Handle)))
+    libImports[0] = graphicsHandle
     let module = libInit(libHandle, loader, libImports)
     dealloc(libImports)
     let moduleUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(libHandle, "update"))
@@ -124,16 +103,16 @@ proc main() =
         t += 1.0 / 60.0
 
         let r = uint8(128 + 91 * sin(t * 3))
-        render.setDrawColor r, 0, 0, 255
-        render.clear
+        graphics.render.setDrawColor r, 0, 0, 255
+        graphics.render.clear
 
-        render.setDrawColor 0, 255, 255, 255
-        render.drawBox(vec(20, 20), vec(80, 80))
+        graphics.render.setDrawColor 0, 255, 255, 255
+        graphics.render.drawBox(vec(20, 20), vec(80, 80))
 
-        render.setDrawColor 128, 64, 255, 255
+        graphics.render.setDrawColor 128, 64, 255, 255
         moduleUpdate(libHandle, t)
 
-        render.present
+        graphics.render.present
 
 echo "Helo werl"
 main()
