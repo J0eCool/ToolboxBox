@@ -49,12 +49,12 @@ proc lookup(handle: Handle): Module =
     assert result != nil
 
 # convenience methods
-proc drawBox(module: Module, pos, size: Vec) =
+proc drawBox(module: Module, pos, size: Vec) {.inline.} =
     module.renderer.drawBox(module.imports.renderer, pos, size)
 
-proc isKeyHeld(module: Module, key: char): bool =
+proc isKeyHeld(module: Module, key: char): bool {.inline.} =
     module.input.isKeyHeld(module.imports.input, key)
-proc wasKeyPressed(module: Module, key: char): bool =
+proc wasKeyPressed(module: Module, key: char): bool {.inline.} =
     module.input.wasKeyPressed(module.imports.input, key)
 
 # forward declarations + wrapper functions

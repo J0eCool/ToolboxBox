@@ -1,0 +1,67 @@
+// Graphics.idl
+
+struct Vec
+    x: float
+    y: float
+
+module Graphics
+exports
+    fn drawBox(Vec, Vec)
+
+-----------
+// Input.idl
+
+enum Key
+    KeyA
+    KeyB
+    // holy crap
+
+module Input
+exports
+    fn isKeyHeld(Key) -> bool
+    fn wasKeyPressed(Key) -> bool
+
+-----------
+// Testlib.idl
+
+module Testlib
+imports
+    Graphics
+        fn drawBox(Vec, Vec)
+    Input
+        fn isKeyHeld(Key) -> bool
+        fn wasKeyPressed(Key) -> bool
+exports
+    update(float)
+
+-----------
+// Testlib.idl
+// better version
+
+import Graphics
+import Input
+
+module Testlib
+imports
+    // auto-read from idls
+    Graphics
+    Input
+exports
+    update(float)
+
+-----------
+// LibLoader.idl
+
+struct Func
+    name: string
+    args: List<Type>
+    ret: Type
+
+struct Module
+    name: string
+    imports: List<Func>
+    exports: List<Func>
+
+module LibLoader
+exports
+    fn getLoadedModules() -> List<Module>
