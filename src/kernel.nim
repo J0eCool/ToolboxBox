@@ -1,6 +1,7 @@
 import dynlib
 import math
 import sdl2
+import sdl2/ttf
 import tables
 
 import syscalls/[
@@ -48,6 +49,7 @@ proc lookup(handle: Handle, name: cstring): pointer {.cdecl.} =
 proc main() =
     # set up sdl and window and such
     discard sdl2.init(INIT_EVERYTHING)
+    discard ttfInit()
 
     # kernel tracking stuff
     let loader = cast[Loader](alloc(sizeof(LoaderObj)))
