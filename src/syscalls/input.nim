@@ -50,16 +50,24 @@ proc cleanup*(module: InputModule) =
 
 # system level special hooks
 
-proc onKeyDown*(module: InputModule, key: int) =
-    # TODO: translate SDL keys to some custom scheme
-    # also figure out how to bind enums across IDL :|
-    # until then, 'a' 'b' etc correspond 1-1 so good enough for now
-    if key < numKeys:
+# TODO: translate SDL keys to some custom scheme
+# also figure out how to bind enums across IDL :|
+# until then, 'a' 'b' etc correspond 1-1 so good enough for now
+func sdlToKey(key: int): int =
+    if key >= numKeys:
+        0
+    else:
+        key
+
+proc onKeyDown*(module: InputModule, sdlKey: int) =
+    # don't set WentDown if key is still Held, because OS-level key repetition
+    let key = sdlToKey(sdlKey)
+    if module.keys[key] != ksHeld:
         module.keys[key] = ksWentDown
 
-proc onKeyUp*(module: InputModule, key: int) =
-    if key < numKeys:
-        module.keys[key] = ksWentUp
+proc onKeyUp*(module: InputModule, sdlKey: int) =
+    let key = sdlToKey(sdlKey)
+    module.keys[key] = ksWentUp
 
 proc update*(module: InputModule) =
     for k in 0..<numKeys:
