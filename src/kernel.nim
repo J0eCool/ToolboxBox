@@ -83,15 +83,15 @@ proc main() =
     let moduleUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(libHandle, "update"))
 
     # load font
-    let font: FontPtr = openFont("assets/Inconsolata-Regular.ttf", 24)
-    assert font != nil
-    defer: font.close()
+    # let font: FontPtr = openFont("assets/Inconsolata-Regular.ttf", 24)
+    # assert font != nil
+    # defer: font.close()
 
     # set up prerendered font
-    let textSurf: SurfacePtr = font.renderTextSolid("Hello wrld", color(255, 255, 255, 255))
-    defer: textSurf.freeSurface()
-    let textTex: TexturePtr = graphics.render.createTexture(textSurf)
-    defer: textTex.destroy()
+    # let textSurf: SurfacePtr = font.renderTextSolid("Hello wrld", color(255, 255, 255, 255))
+    # defer: textSurf.freeSurface()
+    # let textTex: TexturePtr = graphics.render.createTexture(textSurf)
+    # defer: textTex.destroy()
 
     # run loop, logic
     var runGame = true
@@ -128,9 +128,10 @@ proc main() =
         moduleUpdate(libHandle, t)
 
         # draw text
-        var src = rect(0, 0, textSurf.w, textSurf.h)
-        var dest = rect(50, 600, textSurf.w, textSurf.h)
-        graphics.render.copy(textTex, addr src, addr dest)
+        # var src = rect(0, 0, textSurf.w, textSurf.h)
+        # var dest = rect(50, 600, textSurf.w, textSurf.h)
+        # graphics.render.copy(textTex, addr src, addr dest)
+        graphics.drawText(vec(50, 600), "hoi goi")
 
         graphics.render.present
 

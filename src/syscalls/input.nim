@@ -60,8 +60,8 @@ func sdlToKey(key: int): int =
         key
 
 proc onKeyDown*(module: InputModule, sdlKey: int) =
-    # don't set WentDown if key is still Held, because OS-level key repetition
     let key = sdlToKey(sdlKey)
+    # don't set WentDown if key is still Held, because OS-level key repetition
     if module.keys[key] != ksHeld:
         module.keys[key] = ksWentDown
 
