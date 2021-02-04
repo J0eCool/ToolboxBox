@@ -32,6 +32,8 @@ type
     Input = object
         isKeyHeld: proc(input: Handle, key: char): bool {.impfunc.}
         wasKeyPressed: proc(input: Handle, key: char): bool {.impfunc.}
+        mousePos: proc(input: Handle): Vec {.impfunc.}
+        wasMouseReleased: proc(input: Handle, button: int): bool {.impfunc.}
 
     # this module
     Module = ptr ModuleObj
@@ -59,6 +61,10 @@ proc isKeyHeld(module: Module, key: char): bool {.inline.} =
     module.input.isKeyHeld(module.imports.input, key)
 proc wasKeyPressed(module: Module, key: char): bool {.inline.} =
     module.input.wasKeyPressed(module.imports.input, key)
+proc mousePos(module: Module): Vec {.inline.} =
+    module.input.mousePos(module.imports.input)
+proc wasMouseReleased(module: Module, button: int): bool {.inline.} =
+    module.input.wasMouseReleased(module.imports.input, button)
 
 # forward declarations + wrapper functions
 proc update(module: Module, t: float)
@@ -80,6 +86,10 @@ proc initialize(hnd: Handle, loader: Loader, imports: ptr Imports): Module {.exp
         loader.lookup(imports.input, "isKeyHeld"))
     result.input.wasKeyPressed = cast[proc(hnd: Handle, key: char): bool {.impfunc.}](
         loader.lookup(imports.input, "wasKeyPressed"))
+    result.input.mousePos = cast[proc(input: Handle): Vec {.impfunc.}](
+        loader.lookup(imports.input, "mousePos"))
+    result.input.wasMouseReleased = cast[proc(input: Handle, button: int): bool {.impfunc.}](
+        loader.lookup(imports.input, "wasMouseReleased"))
 
     result.pos = vec(300, 30)
 
@@ -105,4 +115,7 @@ proc update(module: Module, t: float) =
 
     module.drawBox(module.pos, vec(40, 40))
 
-    module.drawText(vec(600, 200), $module.pos)
+    module.drawText(vec(600, 200), "player: " & $module.pos)
+    module.drawText(vec(600, 300), "mouse: " & $module.mousePos())
+    if module.wasMouseReleased(1):
+        module.drawText(vec(600, 400), "CLICKED")

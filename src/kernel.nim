@@ -101,12 +101,18 @@ proc main() =
                 input.onKeyDown(evt.key.keysym.sym)
             of KeyUp:
                 input.onKeyUp(evt.key.keysym.sym)
+            of MouseMotion:
+                input.onMouseMotion(evt.motion.x, evt.motion.y)
+            of MouseButtonDown:
+                input.onMouseDown(evt.button.button.int)
+            of MouseButtonUp:
+                input.onMouseUp(evt.button.button.int)
             else:
                 discard
 
         t += 1.0 / 60.0
 
-        let r = uint8(128 + 91 * sin(t * 3))
+        let r = uint8(168 + 41 * sin(t * 3))
         assert graphics.render.setDrawColor(r, 0, 0, 255)
         graphics.render.clear()
 
@@ -118,5 +124,4 @@ proc main() =
 
         graphics.render.present()
 
-echo "Helo werl"
 main()
