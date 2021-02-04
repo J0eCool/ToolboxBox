@@ -26,12 +26,17 @@ proc drawBox*(graphics: GraphicsModule, pos, size: Vec)
 proc wrap_drawBox(handle: Handle, pos, size: Vec) {.cdecl.} =
     drawBox(lookup(handle), pos, size)
 
+proc drawText*(graphics: GraphicsModule, pos: Vec, text: string)
+proc wrap_drawText(handle: Handle, pos: Vec, text: cstring) {.cdecl.} =
+    drawText(lookup(handle), pos, $text)
+
 # standard module hooks
 
 proc initialize*(hnd: Handle, loader: Loader, imports: ptr Imports): GraphicsModule =
     result = cast[GraphicsModule](loader.allocate(hnd, sizeof(GraphicsModuleObj)))
     loadedModules[hnd] = result
     loader.register(hnd, "drawBox", wrap_drawBox)
+    loader.register(hnd, "drawText", wrap_drawText)
 
 proc start*(module: GraphicsModule) =
     let (winW, winH) = (1200, 900)
@@ -42,6 +47,7 @@ proc start*(module: GraphicsModule) =
     let renderFlags = (Renderer_Accelerated or Renderer_PresentVsync or
         Renderer_TargetTexture)
     module.render = createRenderer(module.window, -1, renderFlags)
+    module.render.setDrawBlendMode(BlendMode_Blend)
 
     module.font = openFont("assets/Inconsolata-Regular.ttf", 24)
 
@@ -54,7 +60,7 @@ proc cleanup*(module: GraphicsModule) =
 
 proc drawBox*(graphics: GraphicsModule, pos, size: Vec) =
     var rec = rect(pos.x.cint, pos.y.cint, size.x.cint, size.y.cint)
-    graphics.render.fillRect rec
+    assert graphics.render.fillRect(rec)
 
 proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) =
     let surface: SurfacePtr = graphics.font.renderTextSolid(text, color(255, 255, 255, 255))
@@ -62,8 +68,8 @@ proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) =
 
     # src = nil means use default, which uses the whole texture
     var dest = rect(pos.x.cint, pos.y.cint, surface.w, surface.h)
-    graphics.render.copy(texture, nil, addr dest)
+    assert graphics.render.copy(texture, nil, addr dest)
 
     # cleanup
     surface.freeSurface()
-    texture.destroy()
+    texture.destroyTexture()

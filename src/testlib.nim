@@ -28,6 +28,7 @@ type
     # foreign module
     Renderer = object
         drawBox: proc(renderer: Handle, pos, size: Vec) {.impfunc.}
+        drawText: proc(hnd: Handle, pos: Vec, text: cstring) {.impfunc.}
     Input = object
         isKeyHeld: proc(input: Handle, key: char): bool {.impfunc.}
         wasKeyPressed: proc(input: Handle, key: char): bool {.impfunc.}
@@ -51,6 +52,8 @@ proc lookup(handle: Handle): Module =
 # convenience methods
 proc drawBox(module: Module, pos, size: Vec) {.inline.} =
     module.renderer.drawBox(module.imports.renderer, pos, size)
+proc drawText(module: Module, pos: Vec, text: string) {.inline.} =
+    module.renderer.drawText(module.imports.renderer, pos, text.cstring)
 
 proc isKeyHeld(module: Module, key: char): bool {.inline.} =
     module.input.isKeyHeld(module.imports.input, key)
@@ -70,6 +73,9 @@ proc initialize(hnd: Handle, loader: Loader, imports: ptr Imports): Module {.exp
 
     result.renderer.drawBox = cast[proc(hnd: Handle, pos, size: Vec) {.impfunc.}](
         loader.lookup(imports.renderer, "drawBox"))
+    result.renderer.drawText = cast[proc(hnd: Handle, pos: Vec, text: cstring) {.impfunc.}](
+        loader.lookup(imports.renderer, "drawText"))
+
     result.input.isKeyHeld = cast[proc(hnd: Handle, key: char): bool {.impfunc.}](
         loader.lookup(imports.input, "isKeyHeld"))
     result.input.wasKeyPressed = cast[proc(hnd: Handle, key: char): bool {.impfunc.}](
@@ -98,3 +104,5 @@ proc update(module: Module, t: float) =
         module.pos = module.pos + vec(50, 50)
 
     module.drawBox(module.pos, vec(40, 40))
+
+    module.drawText(vec(600, 200), $module.pos)
