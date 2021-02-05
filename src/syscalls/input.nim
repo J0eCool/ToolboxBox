@@ -1,5 +1,3 @@
-import tables
-
 import common
 import ../vec
 
@@ -28,44 +26,25 @@ type
         #  3 = right
         mouseButtons: array[numMouseButtons, KeyState]
 
-# currently copy-pasting across system modules; maybe unify? maybe don't?
-var loadedModules: Table[Handle, InputModule]
-proc lookup(handle: Handle): InputModule =
-    result = loadedModules[handle]
-    assert result != nil
-
 # wrappers for public functions
 
-proc isKeyHeld(module: InputModule, key: char): bool
-proc wrap_isKeyHeld(handle: Handle, key: char): bool {.cdecl.} =
-    isKeyHeld(lookup(handle), key)
-proc wasKeyPressed(module: InputModule, key: char): bool
-proc wrap_wasKeyPressed(handle: Handle, key: char): bool {.cdecl.} =
-    wasKeyPressed(lookup(handle), key)
-proc wasKeyReleased(module: InputModule, key: char): bool
-proc wrap_wasKeyReleased(handle: Handle, key: char): bool {.cdecl.} =
-    wasKeyReleased(lookup(handle), key)
-proc mousePos(module: InputModule): Vec
-proc wrap_mousePos(handle: Handle): Vec {.cdecl.} =
-    mousePos(lookup(handle))
-proc wasMousePressed(module: InputModule, button: int): bool
-proc wrap_wasMousePressed(handle: Handle, button: int): bool {.cdecl.} =
-    wasMousePressed(lookup(handle), button)
-proc wasMouseReleased(module: InputModule, button: int): bool
-proc wrap_wasMouseReleased(handle: Handle, button: int): bool {.cdecl.} =
-    wasMouseReleased(lookup(handle), button)
+proc isKeyHeld(module: InputModule, key: char): bool {.cdecl.}
+proc wasKeyPressed(module: InputModule, key: char): bool {.cdecl.}
+proc wasKeyReleased(module: InputModule, key: char): bool {.cdecl.}
+proc mousePos(module: InputModule): Vec {.cdecl.}
+proc wasMousePressed(module: InputModule, button: int): bool {.cdecl.}
+proc wasMouseReleased(module: InputModule, button: int): bool {.cdecl.}
 
 # standard module hooks
 
-proc initialize*(hnd: Handle, loader: Loader, imports: ptr Imports): InputModule =
-    result = cast[InputModule](loader.allocate(hnd, sizeof(InputModuleObj)))
-    loadedModules[hnd] = result
-    loader.register(hnd, "isKeyHeld", wrap_isKeyHeld)
-    loader.register(hnd, "wasKeyPressed", wrap_wasKeyPressed)
-    loader.register(hnd, "wasKeyReleased", wrap_wasKeyReleased)
-    loader.register(hnd, "mousePos", wrap_mousePos)
-    loader.register(hnd, "wasMousePressed", wrap_wasMousePressed)
-    loader.register(hnd, "wasMouseReleased", wrap_wasMouseReleased)
+proc initialize*(loader: Loader, imports: ptr Imports): InputModule =
+    result = cast[InputModule](loader.allocate(sizeof(InputModuleObj)))
+    loader.register(result, "isKeyHeld", isKeyHeld)
+    loader.register(result, "wasKeyPressed", wasKeyPressed)
+    loader.register(result, "wasKeyReleased", wasKeyReleased)
+    loader.register(result, "mousePos", mousePos)
+    loader.register(result, "wasMousePressed", wasMousePressed)
+    loader.register(result, "wasMouseReleased", wasMouseReleased)
 
 proc start*(module: InputModule) =
     discard
@@ -112,18 +91,18 @@ proc update*(module: InputModule) =
 
 # exported functions
 
-proc isKeyHeld(module: InputModule, key: char): bool =
+proc isKeyHeld(module: InputModule, key: char): bool {.cdecl.} =
     (module.keys[key.int].int and 2) != 0
 
-proc wasKeyPressed(module: InputModule, key: char): bool =
+proc wasKeyPressed(module: InputModule, key: char): bool {.cdecl.} =
     module.keys[key.int] == ksWentDown
-proc wasKeyReleased(module: InputModule, key: char): bool =
+proc wasKeyReleased(module: InputModule, key: char): bool {.cdecl.} =
     module.keys[key.int] == ksWentUp
 
-proc mousePos(module: InputModule): Vec =
+proc mousePos(module: InputModule): Vec {.cdecl.} =
     vec(module.mouseX.float, module.mouseY.float)
 
-proc wasMousePressed(module: InputModule, button: int): bool =
+proc wasMousePressed(module: InputModule, button: int): bool {.cdecl.} =
     module.mouseButtons[button] == ksWentDown
-proc wasMouseReleased(module: InputModule, button: int): bool =
+proc wasMouseReleased(module: InputModule, button: int): bool {.cdecl.} =
     module.mouseButtons[button] == ksWentUp

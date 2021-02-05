@@ -13,10 +13,6 @@ import vec
 
 type
     ModuleCollection = object
-        nextHandleId: int
-        # data for individual allocated instances
-        # tracked in order to have a shot at freeing this memory in the future
-        privateData: Table[Handle, pointer]
         # table of function pointers
         # TODO: make this per-dll, not per-instance
         funcTable: Table[Handle, Table[string, pointer]]
@@ -30,15 +26,10 @@ type
 
 var collection = ModuleCollection()
 
-proc newHandle(): Handle =
-    result = Handle(collection.nextHandleId)
-    inc collection.nextHandleId
-
-proc allocate(handle: Handle, size: Natural): pointer {.cdecl.} =
+proc allocate(size: Natural): pointer {.cdecl.} =
     # might use the handle to do tracking of stuff later, heck
     result = alloc(size)
-    collection.privateData[handle] = result
-    collection.funcTable[handle] = Table[string, pointer]()
+    collection.funcTable[result.Handle] = Table[string, pointer]()
 
 proc register(handle: Handle, name: cstring, f: pointer) {.cdecl.} =
     collection.funcTable[handle][$name] = f
@@ -58,29 +49,26 @@ proc main() =
     loader.lookup = lookup
 
     # set up graphics module
-    let graphicsHandle = newHandle()
-    let graphics = graphics.initialize(graphicsHandle, loader, nil)
+    let graphics = graphics.initialize(loader, nil)
     graphics.start()
     defer: graphics.cleanup()
 
-    let inputHandle = newHandle()
-    let input = input.initialize(inputHandle, loader, nil)
+    let input = input.initialize(loader, nil)
     input.start()
     defer: input.cleanup()
 
     # do dll loady things
     let libDll = loadLib("testlib.dll")
     assert libDll != nil
-    type initializeProc = proc(hnd: Handle, loader: Loader, imports: pointer): Library {.cdecl.}
+    type initializeProc = proc(loader: Loader, imports: pointer): Library {.cdecl.}
     let libInit = cast[initializeProc](libDll.symAddr("initialize"))
-    let libHandle = newHandle()
     let numImports = 2
     let libImports = cast[ptr UncheckedArray[Handle]](alloc(numImports * sizeof(Handle)))
-    libImports[0] = graphicsHandle
-    libImports[1] = inputHandle
-    let module = libInit(libHandle, loader, libImports)
+    libImports[0] = graphics
+    libImports[1] = input
+    let module = libInit(loader, libImports)
     dealloc(libImports)
-    let moduleUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(libHandle, "update"))
+    let moduleUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(module, "update"))
 
     # run loop, logic
     var runGame = true
@@ -120,7 +108,7 @@ proc main() =
         graphics.drawBox(vec(20, 20), vec(80, 80))
 
         assert graphics.render.setDrawColor(128, 64, 255, 255)
-        moduleUpdate(libHandle, t)
+        moduleUpdate(module, t)
 
         graphics.render.present()
 

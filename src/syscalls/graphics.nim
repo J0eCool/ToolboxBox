@@ -1,6 +1,5 @@
 import sdl2
 import sdl2/ttf
-import tables
 
 import common
 import ../vec
@@ -14,29 +13,17 @@ type
         render*: RendererPtr
         font: FontPtr
 
-# currently copy-pasting across system modules; maybe unify? maybe don't?
-var loadedModules: Table[Handle, GraphicsModule]
-proc lookup(handle: Handle): GraphicsModule =
-    result = loadedModules[handle]
-    assert result != nil
-
 # wrappers for public functions
 
-proc drawBox*(graphics: GraphicsModule, pos, size: Vec)
-proc wrap_drawBox(handle: Handle, pos, size: Vec) {.cdecl.} =
-    drawBox(lookup(handle), pos, size)
-
-proc drawText*(graphics: GraphicsModule, pos: Vec, text: string)
-proc wrap_drawText(handle: Handle, pos: Vec, text: cstring) {.cdecl.} =
-    drawText(lookup(handle), pos, $text)
+proc drawBox*(graphics: GraphicsModule, pos, size: Vec) {.cdecl.}
+proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) {.cdecl.}
 
 # standard module hooks
 
-proc initialize*(hnd: Handle, loader: Loader, imports: ptr Imports): GraphicsModule =
-    result = cast[GraphicsModule](loader.allocate(hnd, sizeof(GraphicsModuleObj)))
-    loadedModules[hnd] = result
-    loader.register(hnd, "drawBox", wrap_drawBox)
-    loader.register(hnd, "drawText", wrap_drawText)
+proc initialize*(loader: Loader, imports: ptr Imports): GraphicsModule =
+    result = cast[GraphicsModule](loader.allocate(sizeof(GraphicsModuleObj)))
+    loader.register(result, "drawBox", drawBox)
+    loader.register(result, "drawText", drawText)
 
 proc start*(module: GraphicsModule) =
     let (winW, winH) = (1200, 900)
@@ -58,11 +45,11 @@ proc cleanup*(module: GraphicsModule) =
 
 # exported functions
 
-proc drawBox*(graphics: GraphicsModule, pos, size: Vec) =
+proc drawBox*(graphics: GraphicsModule, pos, size: Vec) {.cdecl.} =
     var rec = rect(pos.x.cint, pos.y.cint, size.x.cint, size.y.cint)
     assert graphics.render.fillRect(rec)
 
-proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) =
+proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) {.cdecl.} =
     let surface: SurfacePtr = graphics.font.renderTextSolid(text, color(255, 255, 255, 255))
     let texture: TexturePtr = graphics.render.createTexture(surface)
 

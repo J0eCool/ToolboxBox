@@ -5,16 +5,14 @@ import vec
 # ---------------------------------
 # hopefully can autogen this stuff from IDL
 
-import tables
-
 {.pragma:impfunc, cdecl.}
 {.pragma:expfunc, cdecl, exportc, dynlib.}
 
 type
     # kernel stuff for initialization
-    Handle = distinct int
+    Handle = pointer
     Loader = ptr object
-        allocate: proc(hnd: Handle, size: Natural): pointer {.impfunc.}
+        allocate: proc(size: Natural): pointer {.impfunc.}
         register: proc(hnd: Handle, name: cstring, f: pointer) {.impfunc.}
         lookup: proc(hnd: Handle, name: cstring): pointer {.impfunc.}
 
@@ -44,13 +42,6 @@ type
 
         pos: Vec
 
-proc `==`(a, b: Handle): bool {.borrow.}
-
-var loadedModules: Table[Handle, Module]
-proc lookup(handle: Handle): Module =
-    result = loadedModules[handle]
-    assert result != nil
-
 # convenience methods
 proc drawBox(module: Module, pos, size: Vec) {.inline.} =
     module.renderer.drawBox(module.imports.renderer, pos, size)
@@ -67,15 +58,12 @@ proc wasMouseReleased(module: Module, button: int): bool {.inline.} =
     module.input.wasMouseReleased(module.imports.input, button)
 
 # forward declarations + wrapper functions
-proc update(module: Module, t: float)
-proc wrap_update(handle: Handle, t: float) {.cdecl.} =
-    update(lookup(handle), t)
+proc update(module: Module, t: float) {.cdecl.}
 
-proc initialize(hnd: Handle, loader: Loader, imports: ptr Imports): Module {.expfunc.} =
-    result = cast[Module](loader.allocate(hnd, sizeof(ModuleObj)))
-    loadedModules[hnd] = result
+proc initialize(loader: Loader, imports: ptr Imports): Module {.expfunc.} =
+    result = cast[Module](loader.allocate(sizeof(ModuleObj)))
     result.imports = imports[]
-    loader.register(hnd, "update", wrap_update)
+    loader.register(result, "update", update)
 
     result.renderer.drawBox = cast[proc(hnd: Handle, pos, size: Vec) {.impfunc.}](
         loader.lookup(imports.renderer, "drawBox"))
@@ -96,7 +84,7 @@ proc initialize(hnd: Handle, loader: Loader, imports: ptr Imports): Module {.exp
 # end autogen
 # ---------------------------------
 
-proc update(module: Module, t: float) =
+proc update(module: Module, t: float) {.cdecl.} =
     let pos = vec(120 + 10 * cos(5 * t), 200 + 100 * sin(t))
     module.drawBox(pos, vec(40, 40))
 
