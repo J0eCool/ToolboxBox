@@ -79,10 +79,11 @@ proc initialize(loader: Loader, imports: ptr Imports): Module {.expfunc.} =
     result.input.wasMouseReleased = cast[proc(input: Handle, button: int): bool {.impfunc.}](
         loader.lookup(imports.input, "wasMouseReleased"))
 
-    result.pos = vec(300, 30)
-
 # end autogen
 # ---------------------------------
+
+proc start(module: Module) {.expfunc.} =
+    module.pos = vec(300, 30)
 
 proc update(module: Module, t: float) {.cdecl.} =
     let pos = vec(120 + 10 * cos(5 * t), 200 + 100 * sin(t))

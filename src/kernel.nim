@@ -20,10 +20,6 @@ type
     ModuleDesc = object
         funcs: Table[string, pointer]
 
-    # test library
-    Library = ptr object
-        update: proc(lib: Library, t: float) {.cdecl.}
-
 var collection = ModuleCollection()
 
 proc allocate(size: Natural): pointer {.cdecl.} =
@@ -37,6 +33,24 @@ proc register(handle: Handle, name: cstring, f: pointer) {.cdecl.} =
 proc lookup(handle: Handle, name: cstring): pointer {.cdecl.} =
     collection.funcTable[handle][$name]
 
+type
+    initializeProc = proc(loader: Loader, imports: pointer): Handle {.cdecl.}
+    startProc = proc(module: Handle) {.cdecl.}
+    cleanupProc = proc(module: Handle) {.cdecl.}
+
+proc loadModule(filename: string, loader: Loader, importSeq: seq[pointer]): Handle =
+    let dll = loadLib("testlib.dll")
+    assert dll != nil
+    let initialize = cast[initializeProc](dll.symAddr("initialize"))
+    let start = cast[startProc](dll.symAddr("start"))
+    let imports = cast[ptr UncheckedArray[pointer]](alloc(importSeq.len * sizeof(pointer)))
+    for i in 0..<importSeq.len:
+        imports[i] = importSeq[i]
+    result = initialize(loader, imports)
+    dealloc(imports)
+    if start != nil:
+        start(result)
+
 proc main() =
     # set up sdl and window and such
     assert sdl2.init(INIT_EVERYTHING)
@@ -48,7 +62,7 @@ proc main() =
     loader.register = register
     loader.lookup = lookup
 
-    # set up graphics module
+    # set up system modules
     let graphics = graphics.initialize(loader, nil)
     graphics.start()
     defer: graphics.cleanup()
@@ -57,17 +71,8 @@ proc main() =
     input.start()
     defer: input.cleanup()
 
-    # do dll loady things
-    let libDll = loadLib("testlib.dll")
-    assert libDll != nil
-    type initializeProc = proc(loader: Loader, imports: pointer): Library {.cdecl.}
-    let libInit = cast[initializeProc](libDll.symAddr("initialize"))
-    let numImports = 2
-    let libImports = cast[ptr UncheckedArray[Handle]](alloc(numImports * sizeof(Handle)))
-    libImports[0] = graphics
-    libImports[1] = input
-    let module = libInit(loader, libImports)
-    dealloc(libImports)
+    # now user modules
+    let module = loadModule("testlib.dll", loader, @[graphics.pointer, input.pointer])
     let moduleUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(module, "update"))
 
     # run loop, logic
