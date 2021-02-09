@@ -60,10 +60,12 @@ proc wasMouseReleased(module: Module, button: int): bool {.inline.} =
 # forward declarations + wrapper functions
 proc update(module: Module, t: float) {.cdecl.}
 
-proc initialize(loader: Loader, imports: ptr Imports): Module {.expfunc.} =
+proc initialize(smeef: Handle, loader: Loader) {.expfunc.} =
+    loader.register(smeef, "update", update)
+
+proc construct(loader: Loader, imports: ptr Imports): Module {.expfunc.} =
     result = cast[Module](loader.allocate(sizeof(ModuleObj)))
     result.imports = imports[]
-    loader.register(result, "update", update)
 
     result.renderer.drawBox = cast[proc(hnd: Handle, pos, size: Vec) {.impfunc.}](
         loader.lookup(imports.renderer, "drawBox"))

@@ -17,7 +17,7 @@ type
     Imports = object
 
     InputModule* = ptr InputModuleObj
-    InputModuleObj = object
+    InputModuleObj = object of ZarbObj
         keys: array[numKeys, KeyState]
         mouseX, mouseY: int
         # not sure what to do w/ mouse buttons:
@@ -37,14 +37,16 @@ proc wasMouseReleased(module: InputModule, button: int): bool {.cdecl.}
 
 # standard module hooks
 
-proc initialize*(loader: Loader, imports: ptr Imports): InputModule =
+proc initialize*(smeef: Smeef, loader: Loader) =
+    loader.register(smeef, "isKeyHeld", isKeyHeld)
+    loader.register(smeef, "wasKeyPressed", wasKeyPressed)
+    loader.register(smeef, "wasKeyReleased", wasKeyReleased)
+    loader.register(smeef, "mousePos", mousePos)
+    loader.register(smeef, "wasMousePressed", wasMousePressed)
+    loader.register(smeef, "wasMouseReleased", wasMouseReleased)
+
+proc construct*(loader: Loader, imports: ptr Imports): InputModule =
     result = cast[InputModule](loader.allocate(sizeof(InputModuleObj)))
-    loader.register(result, "isKeyHeld", isKeyHeld)
-    loader.register(result, "wasKeyPressed", wasKeyPressed)
-    loader.register(result, "wasKeyReleased", wasKeyReleased)
-    loader.register(result, "mousePos", mousePos)
-    loader.register(result, "wasMousePressed", wasMousePressed)
-    loader.register(result, "wasMouseReleased", wasMouseReleased)
 
 proc start*(module: InputModule) =
     discard

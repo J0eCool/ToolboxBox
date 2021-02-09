@@ -15,39 +15,58 @@ type
     ModuleCollection = object
         # table of function pointers
         # TODO: make this per-dll, not per-instance
-        funcTable: Table[Handle, Table[string, pointer]]
-
-    ModuleDesc = object
-        funcs: Table[string, pointer]
+        funcTable: Table[Smeef, Table[string, pointer]]
 
 var collection = ModuleCollection()
 
 proc allocate(size: Natural): pointer {.cdecl.} =
-    # might use the handle to do tracking of stuff later, heck
-    result = alloc(size)
-    collection.funcTable[result.Handle] = Table[string, pointer]()
+    # leave space before the allocation to store a Smeef pointer
+    # XXX: said pointer is not filled until after `construct` returns :[
+    let raw = alloc(size + sizeof(pointer))
+    return cast[pointer](cast[int](raw) + sizeof(Smeef))
 
-proc register(handle: Handle, name: cstring, f: pointer) {.cdecl.} =
+proc register(handle: Smeef, name: cstring, f: pointer) {.cdecl.} =
     collection.funcTable[handle][$name] = f
 
-proc lookup(handle: Handle, name: cstring): pointer {.cdecl.} =
-    collection.funcTable[handle][$name]
+proc lookup(handle: Zarb, name: cstring): pointer {.cdecl.} =
+    # oh this is cursed
+    let index = cast[ptr Smeef](cast[int](handle) - sizeof(Smeef))[]
+    collection.funcTable[index][$name]
 
 type
-    initializeProc = proc(loader: Loader, imports: pointer): Handle {.cdecl.}
-    startProc = proc(module: Handle) {.cdecl.}
-    cleanupProc = proc(module: Handle) {.cdecl.}
+    initializeProc = proc(smeef: Smeef, loader: Loader) {.cdecl.}
+    constructProc = proc(loader: Loader, imports: pointer): Zarb {.cdecl.}
+    startProc = proc(module: Zarb) {.cdecl.}
+    cleanupProc = proc(module: Zarb) {.cdecl.}
 
-proc loadModule(filename: string, loader: Loader, importSeq: seq[pointer]): Handle =
-    let dll = loadLib("testlib.dll")
+proc newSmeef(): Smeef =
+    result = cast[Smeef](alloc(sizeof(SmeefObj)))
+    collection.funcTable[result] = Table[string, pointer]()
+
+proc loadSmeef(filename: string, loader: Loader): Smeef =
+    let dll = loadLib(filename)
     assert dll != nil
+    result = newSmeef()
+    result.dll = dll
+    collection.funcTable[result] = Table[string, pointer]()
     let initialize = cast[initializeProc](dll.symAddr("initialize"))
-    let start = cast[startProc](dll.symAddr("start"))
+    assert initialize != nil
+    initialize(result, loader)
+
+proc setSmeef(zarb: Zarb, smeef: Smeef) =
+    # XXX: assumes construct calls `allocate` for its result, backfill smeef ptr (oh jeez)
+    (cast[ptr Smeef](cast[int](zarb) - sizeof(Smeef)))[] = smeef
+
+proc loadZarb(smeef: Smeef, loader: Loader, importSeq: seq[pointer]): Zarb =
     let imports = cast[ptr UncheckedArray[pointer]](alloc(importSeq.len * sizeof(pointer)))
     for i in 0..<importSeq.len:
         imports[i] = importSeq[i]
-    result = initialize(loader, imports)
+    let construct = cast[constructProc](smeef.dll.symAddr("construct"))
+    assert construct != nil
+    result = construct(loader, imports)
+    setSmeef(result, smeef)
     dealloc(imports)
+    let start = cast[startProc](smeef.dll.symAddr("start"))
     if start != nil:
         start(result)
 
@@ -63,17 +82,24 @@ proc main() =
     loader.lookup = lookup
 
     # set up system modules
-    let graphics = graphics.initialize(loader, nil)
+    let graphicsSmeef = newSmeef()
+    graphics.initialize(graphicsSmeef, loader)
+    let graphics = graphics.construct(loader, nil)
+    setSmeef(graphics, graphicsSmeef)
     graphics.start()
     defer: graphics.cleanup()
 
-    let input = input.initialize(loader, nil)
+    let inputSmeef = newSmeef()
+    input.initialize(inputSmeef, loader)
+    let input = input.construct(loader, nil)
+    setSmeef(input, inputSmeef)
     input.start()
     defer: input.cleanup()
 
     # now user modules
-    let module = loadModule("testlib.dll", loader, @[graphics.pointer, input.pointer])
-    let moduleUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(module, "update"))
+    let testlibSmeef = loadSmeef("testlib.dll", loader)
+    let testlib = loadZarb(testlibSmeef, loader, @[graphics.pointer, input.pointer])
+    let testlibUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(testlib, "update"))
 
     # run loop, logic
     var runGame = true
@@ -113,7 +139,7 @@ proc main() =
         graphics.drawBox(vec(20, 20), vec(80, 80))
 
         assert graphics.render.setDrawColor(128, 64, 255, 255)
-        moduleUpdate(module, t)
+        testlibUpdate(testlib, t)
 
         graphics.render.present()
 

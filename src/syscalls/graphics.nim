@@ -8,7 +8,7 @@ type
     Imports = object
 
     GraphicsModule* = ptr GraphicsModuleObj
-    GraphicsModuleObj = object
+    GraphicsModuleObj = object of ZarbObj
         window*: WindowPtr
         render*: RendererPtr
         font: FontPtr
@@ -20,10 +20,12 @@ proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) {.cdecl.}
 
 # standard module hooks
 
-proc initialize*(loader: Loader, imports: ptr Imports): GraphicsModule =
+proc initialize*(smeef: Smeef, loader: Loader) =
+    loader.register(smeef, "drawBox", drawBox)
+    loader.register(smeef, "drawText", drawText)
+
+proc construct*(loader: Loader, imports: ptr Imports): GraphicsModule =
     result = cast[GraphicsModule](loader.allocate(sizeof(GraphicsModuleObj)))
-    loader.register(result, "drawBox", drawBox)
-    loader.register(result, "drawText", drawText)
 
 proc start*(module: GraphicsModule) =
     let (winW, winH) = (1200, 900)
