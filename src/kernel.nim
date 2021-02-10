@@ -43,10 +43,11 @@ proc newSmeef(): Smeef =
     result = cast[Smeef](alloc(sizeof(SmeefObj)))
     collection.funcTable[result] = Table[string, pointer]()
 
-proc loadSmeef(filename: string, loader: Loader): Smeef =
-    let dll = loadLib(filename)
+proc loadSmeef(desc: SmeefDesc, loader: Loader): Smeef =
+    let dll = loadLib(desc.dllFilename)
     assert dll != nil
     result = newSmeef()
+    result.desc = desc
     result.dll = dll
     collection.funcTable[result] = Table[string, pointer]()
     let initialize = cast[initializeProc](dll.symAddr("initialize"))
@@ -58,14 +59,29 @@ proc setSmeef(zarb: Zarb, smeef: Smeef) =
     (cast[ptr Smeef](cast[int](zarb) - sizeof(Smeef)))[] = smeef
 
 proc loadZarb(smeef: Smeef, loader: Loader, importSeq: seq[pointer]): Zarb =
+    var numImportedFuncs = 0
+    for module in smeef.desc.imports:
+        numImportedFuncs += module.len
+
+    let numImports = importSeq.len + numImportedFuncs
+
     let imports = cast[ptr UncheckedArray[pointer]](alloc(importSeq.len * sizeof(pointer)))
+    var importIdx = 0
+    assert importSeq.len == smeef.desc.imports.len
     for i in 0..<importSeq.len:
-        imports[i] = importSeq[i]
+        let zarb = importSeq[i]
+        imports[importIdx] = zarb
+        inc importIdx
+        for fn in smeef.desc.imports[i]:
+            imports[importIdx] = lookup(cast[Zarb](zarb), fn.cstring)
+            inc importIdx
+
     let construct = cast[constructProc](smeef.dll.symAddr("construct"))
     assert construct != nil
     result = construct(loader, imports)
     setSmeef(result, smeef)
     dealloc(imports)
+
     let start = cast[startProc](smeef.dll.symAddr("start"))
     if start != nil:
         start(result)
@@ -97,9 +113,27 @@ proc main() =
     defer: input.cleanup()
 
     # now user modules
-    let testlibSmeef = loadSmeef("testlib.dll", loader)
-    let testlib = loadZarb(testlibSmeef, loader, @[graphics.pointer, input.pointer])
-    let testlibUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(testlib, "update"))
+    let
+        testlibSmeefDesc = SmeefDesc(
+            dllFilename: "testlib.dll",
+            name: "TestLib",
+            imports: @[
+                @[
+                    # graphics
+                    "drawBox",
+                    "drawText",
+                ], @[
+                    # input
+                    "isKeyHeld",
+                    "wasKeyPressed",
+                    "mousePos",
+                    "wasMouseReleased",
+                ]
+            ],
+        )
+        testlibSmeef = loadSmeef(testlibSmeefDesc, loader)
+        testlib = loadZarb(testlibSmeef, loader, @[graphics.pointer, input.pointer])
+        testlibUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(testlib, "update"))
 
     # run loop, logic
     var runGame = true
