@@ -120,6 +120,7 @@ proc main() =
             imports: @[
                 @[
                     # graphics
+                    "setRGB",
                     "drawBox",
                     "drawText",
                 ], @[
@@ -165,14 +166,13 @@ proc main() =
 
         t += 1.0 / 60.0
 
-        let r = uint8(168 + 41 * sin(t * 3))
-        assert graphics.render.setDrawColor(r, 0, 0, 255)
+        let r = 168 + int(41 * sin(t * 3))
+        graphics.setRGB(r, 0, 0)
         graphics.render.clear()
 
-        assert graphics.render.setDrawColor(0, 255, 255, 255)
+        graphics.setRGB(0, 255, 255)
         graphics.drawBox(vec(20, 20), vec(80, 80))
 
-        assert graphics.render.setDrawColor(128, 64, 255, 255)
         testlibUpdate(testlib, t)
 
         graphics.render.present()

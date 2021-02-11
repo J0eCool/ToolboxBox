@@ -11,16 +11,19 @@ type
     GraphicsModuleObj = object of ZarbObj
         window*: WindowPtr
         render*: RendererPtr
+        drawColor: Color
         font: FontPtr
 
 # wrappers for public functions
 
+proc setRGB*(graphics: GraphicsModule, r, g, b: int) {.cdecl.}
 proc drawBox*(graphics: GraphicsModule, pos, size: Vec) {.cdecl.}
 proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) {.cdecl.}
 
 # standard module hooks
 
 proc initialize*(smeef: Smeef, loader: Loader) =
+    loader.register(smeef, "setRGB", setRGB)
     loader.register(smeef, "drawBox", drawBox)
     loader.register(smeef, "drawText", drawText)
 
@@ -47,12 +50,17 @@ proc cleanup*(module: GraphicsModule) =
 
 # exported functions
 
+proc setRGB*(graphics: GraphicsModule, r, g, b: int) {.cdecl.} =
+    let c = color(r, g, b, 255)
+    graphics.drawColor = c
+    assert graphics.render.setDrawColor(c.r, c.g, c.b, c.a)
+
 proc drawBox*(graphics: GraphicsModule, pos, size: Vec) {.cdecl.} =
     var rec = rect(pos.x.cint, pos.y.cint, size.x.cint, size.y.cint)
     assert graphics.render.fillRect(rec)
 
 proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) {.cdecl.} =
-    let surface: SurfacePtr = graphics.font.renderTextSolid(text, color(255, 255, 255, 255))
+    let surface: SurfacePtr = graphics.font.renderTextSolid(text, graphics.drawColor)
     let texture: TexturePtr = graphics.render.createTexture(surface)
 
     # src = nil means use default, which uses the whole texture

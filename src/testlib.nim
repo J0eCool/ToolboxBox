@@ -21,6 +21,7 @@ type
     # in order to call back correctly
     Imports = object
         renderer: Handle
+        setRGB: proc(renderer: Handle, r, g, b: int) {.impfunc.}
         drawBox: proc(renderer: Handle, pos, size: Vec) {.impfunc.}
         drawText: proc(hnd: Handle, pos: Vec, text: cstring) {.impfunc.}
 
@@ -38,6 +39,8 @@ type
         pos: Vec
 
 # convenience methods
+proc setRGB(module: Module, r, g, b: int) {.inline.} =
+    module.imports.setRGB(module.imports.renderer, r, g, b)
 proc drawBox(module: Module, pos, size: Vec) {.inline.} =
     module.imports.drawBox(module.imports.renderer, pos, size)
 proc drawText(module: Module, pos: Vec, text: string) {.inline.} =
@@ -70,6 +73,7 @@ proc start(module: Module) {.expfunc.} =
 
 proc update(module: Module, t: float) {.cdecl.} =
     let pos = vec(120 + 10 * cos(5 * t), 200 + 100 * sin(t))
+    module.setRGB(128, 64, 255)
     module.drawBox(pos, vec(40, 40))
 
     let speed = 5.0
@@ -87,6 +91,7 @@ proc update(module: Module, t: float) {.cdecl.} =
 
     module.drawBox(module.pos, vec(40, 40))
 
+    module.setRGB(128, 255, 255)
     module.drawText(vec(600, 200), "player: " & $module.pos)
     module.drawText(vec(600, 300), "mouse: " & $module.mousePos())
     if module.wasMouseReleased(1):
