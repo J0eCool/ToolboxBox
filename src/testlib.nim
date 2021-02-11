@@ -103,7 +103,6 @@ proc update(module: Module, t: float) {.cdecl.} =
     if module.wasMouseReleased(1):
         module.drawText(vec(600, 400), "CLICKED")
 
-    echo "testlib graphics: ", cast[int](module.imports.renderer)
     if module.button("Left", vec(100, 760), vec(240, 120)):
         module.pos.x -= 50
     if module.button("Right", vec(360, 760), vec(240, 120)):

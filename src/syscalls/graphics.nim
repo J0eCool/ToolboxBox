@@ -18,7 +18,7 @@ type
 
 proc setRGB*(graphics: GraphicsModule, r, g, b: int) {.cdecl.}
 proc drawBox*(graphics: GraphicsModule, pos, size: Vec) {.cdecl.}
-proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) {.cdecl.}
+proc drawText*(graphics: GraphicsModule, pos: Vec, text: cstring) {.cdecl.}
 
 # standard module hooks
 
@@ -59,7 +59,7 @@ proc drawBox*(graphics: GraphicsModule, pos, size: Vec) {.cdecl.} =
     var rec = rect(pos.x.cint, pos.y.cint, size.x.cint, size.y.cint)
     assert graphics.render.fillRect(rec)
 
-proc drawText*(graphics: GraphicsModule, pos: Vec, text: string) {.cdecl.} =
+proc drawText*(graphics: GraphicsModule, pos: Vec, text: cstring) {.cdecl.} =
     let surface: SurfacePtr = graphics.font.renderTextSolid(text, graphics.drawColor)
     let texture: TexturePtr = graphics.render.createTexture(surface)
 

@@ -76,11 +76,6 @@ proc button(module: Module, text: cstring, pos, size: Vec): bool {.cdecl.} =
     # TODO: drawCenteredText method
     let labelPos = pos + size/2 - vec(size.x/4, 0)
     module.setRGB(255, 255, 255)
-    # module.drawText(labelPos, text)
-    # module.drawText(labelPos, "label")
-    echo "gui graphics: ", cast[int](module.imports.renderer)
-    module.imports.drawText(module.imports.renderer, labelPos, "label")
-    # module.drawText(labelPos, "label")
-    # module.imports.drawText(module.imports.renderer, labelPos, text)
+    module.drawText(labelPos, $text)
 
     return isMouseOver and module.wasMouseReleased(1)
