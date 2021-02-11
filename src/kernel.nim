@@ -58,7 +58,7 @@ proc setSmeef(zarb: Zarb, smeef: Smeef) =
     # XXX: assumes construct calls `allocate` for its result, backfill smeef ptr (oh jeez)
     (cast[ptr Smeef](cast[int](zarb) - sizeof(Smeef)))[] = smeef
 
-proc loadZarb(smeef: Smeef, loader: Loader, importSeq: seq[pointer]): Zarb =
+proc loadZarb(smeef: Smeef, loader: Loader, importSeq: seq[Zarb]): Zarb =
     var numImportedFuncs = 0
     for module in smeef.desc.imports:
         numImportedFuncs += module.len
@@ -114,6 +114,26 @@ proc main() =
 
     # now user modules
     let
+        guiSmeefDesc = SmeefDesc(
+            dllFilename: "gui.dll",
+            name: "Gui",
+            imports: @[
+                @[
+                    # graphics
+                    "setRGB",
+                    "drawBox",
+                    "drawText",
+                ], @[
+                    # input
+                    "mousePos",
+                    "wasMouseReleased",
+                ]
+            ],
+        )
+        guiSmeef = loadSmeef(guiSmeefDesc, loader)
+        gui = loadZarb(guiSmeef, loader, @[graphics, input])
+
+    let
         testlibSmeefDesc = SmeefDesc(
             dllFilename: "testlib.dll",
             name: "TestLib",
@@ -129,11 +149,14 @@ proc main() =
                     "wasKeyPressed",
                     "mousePos",
                     "wasMouseReleased",
+                ], @[
+                    # gui
+                    "button",
                 ]
             ],
         )
         testlibSmeef = loadSmeef(testlibSmeefDesc, loader)
-        testlib = loadZarb(testlibSmeef, loader, @[graphics.pointer, input.pointer])
+        testlib = loadZarb(testlibSmeef, loader, @[graphics, input, gui])
         testlibUpdate = cast[proc(module: Handle, t: float) {.cdecl.}](lookup(testlib, "update"))
 
     # run loop, logic

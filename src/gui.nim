@@ -26,20 +26,13 @@ type
         drawText: proc(hnd: Handle, pos: Vec, text: cstring) {.impfunc.}
 
         input: Handle
-        isKeyHeld: proc(input: Handle, key: char): bool {.impfunc.}
-        wasKeyPressed: proc(input: Handle, key: char): bool {.impfunc.}
         mousePos: proc(input: Handle): Vec {.impfunc.}
         wasMouseReleased: proc(input: Handle, button: int): bool {.impfunc.}
-
-        gui: Handle
-        button: proc (gui: Handle, text: cstring, pos, size: Vec): bool {.impfunc.}
 
     # this module
     Module = ptr ModuleObj
     ModuleObj = object
         imports: Imports
-
-        pos: Vec
 
 # convenience methods
 proc setRGB(module: Module, r, g, b: int) {.inline.} =
@@ -49,23 +42,16 @@ proc drawBox(module: Module, pos, size: Vec) {.inline.} =
 proc drawText(module: Module, pos: Vec, text: string) {.inline.} =
     module.imports.drawText(module.imports.renderer, pos, text.cstring)
 
-proc isKeyHeld(module: Module, key: char): bool {.inline.} =
-    module.imports.isKeyHeld(module.imports.input, key)
-proc wasKeyPressed(module: Module, key: char): bool {.inline.} =
-    module.imports.wasKeyPressed(module.imports.input, key)
 proc mousePos(module: Module): Vec {.inline.} =
     module.imports.mousePos(module.imports.input)
 proc wasMouseReleased(module: Module, button: int): bool {.inline.} =
     module.imports.wasMouseReleased(module.imports.input, button)
 
-proc button(module: Module, text: string, pos, size: Vec): bool {.inline.} =
-    module.imports.button(module.imports.gui, text.cstring, pos, size)
-
 # forward declarations + wrapper functions
-proc update(module: Module, t: float) {.cdecl.}
+proc button(module: Module, text: cstring, pos, size: Vec): bool {.cdecl.}
 
 proc initialize(smeef: Handle, loader: Loader) {.expfunc.} =
-    loader.register(smeef, "update", update)
+    loader.register(smeef, "button", button)
 
 proc construct(loader: Loader, imports: ptr Imports): Module {.expfunc.} =
     result = cast[Module](loader.allocate(sizeof(ModuleObj)))
@@ -74,37 +60,27 @@ proc construct(loader: Loader, imports: ptr Imports): Module {.expfunc.} =
 # end autogen
 # ---------------------------------
 
-proc start(module: Module) {.expfunc.} =
-    module.pos = vec(300, 30)
+proc button(module: Module, text: cstring, pos, size: Vec): bool {.cdecl.} =
+    let
+        br = pos + size
+        mouse = module.mousePos()
+        isMouseOver = (mouse.x >= pos.x and mouse.x <= br.x and
+            mouse.y >= pos.y and mouse.y <= br.y)
 
-proc update(module: Module, t: float) {.cdecl.} =
-    let pos = vec(120 + 10 * cos(5 * t), 200 + 100 * sin(t))
-    module.setRGB(128, 64, 255)
-    module.drawBox(pos, vec(40, 40))
+    if isMouseOver:
+        module.setRGB(160, 160, 128)
+    else:
+        module.setRGB(92, 92, 92)
+    module.drawBox(pos, size)
 
-    let speed = 5.0
-    if module.isKeyHeld('a'):
-        module.pos.x -= speed
-    if module.isKeyHeld('d'):
-        module.pos.x += speed
-    if module.isKeyHeld('w'):
-        module.pos.y -= speed
-    if module.isKeyHeld('s'):
-        module.pos.y += speed
+    # TODO: drawCenteredText method
+    let labelPos = pos + size/2 - vec(size.x/4, 0)
+    module.setRGB(255, 255, 255)
+    # module.drawText(labelPos, text)
+    # module.drawText(labelPos, "label")
+    echo "gui graphics: ", cast[int](module.imports.renderer)
+    module.imports.drawText(module.imports.renderer, labelPos, "label")
+    # module.drawText(labelPos, "label")
+    # module.imports.drawText(module.imports.renderer, labelPos, text)
 
-    if module.wasKeyPressed('j'):
-        module.pos = module.pos + vec(50, 50)
-
-    module.drawBox(module.pos, vec(40, 40))
-
-    module.setRGB(128, 255, 255)
-    module.drawText(vec(600, 200), "player: " & $module.pos)
-    module.drawText(vec(600, 300), "mouse: " & $module.mousePos())
-    if module.wasMouseReleased(1):
-        module.drawText(vec(600, 400), "CLICKED")
-
-    echo "testlib graphics: ", cast[int](module.imports.renderer)
-    if module.button("Left", vec(100, 760), vec(240, 120)):
-        module.pos.x -= 50
-    if module.button("Right", vec(360, 760), vec(240, 120)):
-        module.pos.x += 50
+    return isMouseOver and module.wasMouseReleased(1)
