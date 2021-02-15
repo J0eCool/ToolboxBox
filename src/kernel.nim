@@ -1,7 +1,11 @@
 import dynlib
 import math
 import sdl2
-import sdl2/ttf
+import sdl2/[
+    audio,
+    mixer,
+    ttf,
+]
 import tables
 
 import syscalls/[
@@ -86,10 +90,31 @@ proc loadZarb(smeef: Smeef, loader: Loader, importSeq: seq[Zarb]): Zarb =
     if start != nil:
         start(result)
 
+proc hookMusic*(mix_func: proc (udata: pointer; stream: ptr uint8; len: cint) {.
+    cdecl.}; arg: pointer) {.importc: "Mix_HookMusic".}
+
+proc audioHook(udata: pointer, rawstream: ptr uint8, size: cint) {.cdecl.} =
+    let stream = cast[ptr UncheckedArray[int16]](rawstream)
+    let count = size div 2 # bytes -> samples
+    let volume = 0.5
+    for i in 0..<count:
+        stream[i] = int16(volume * 256 * 256 * sin(440.0 / 22050.0 * i.float))
+
 proc main() =
     # set up sdl and window and such
     assert sdl2.init(INIT_EVERYTHING)
     assert ttfInit()
+    discard mixer.init(MIX_INIT_OGG or MIX_INIT_MP3)
+
+    let
+        audioFrequency: cint = 22050 # Hz
+        audioFormat: uint16 = AUDIO_S16 # 16bit audio; assuming Little-Endian
+        audioChannels: cint = 1 # mono
+        audioChunksize: cint = 512
+    assert mixer.openAudio(audioFrequency, audioFormat, audioChannels, audioChunksize) == 0
+    defer: mixer.closeAudio()
+    hookMusic(nil, nil)
+    # hookMusic(audioHook, nil)
 
     # kernel tracking stuff
     let loader = cast[Loader](alloc(sizeof(LoaderObj)))

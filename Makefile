@@ -6,7 +6,7 @@ clean:
 	rm -rf out/
 .PHONY: clean
 
-out/kernel.exe: src/kernel.nim src/syscalls/*
+out/kernel.exe: src/kernel.nim src/kernel.nim.cfg src/syscalls/*
 	nim c -o:out/kernel.exe src/kernel.nim
 
 out/testlib.dll: src/testlib.nim
