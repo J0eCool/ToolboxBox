@@ -26,16 +26,19 @@ var collection = ModuleCollection()
 proc allocate(size: Natural): pointer {.cdecl.} =
     # leave space before the allocation to store a Smeef pointer
     # XXX: said pointer is not filled until after `construct` returns :[
-    let raw = alloc(size + sizeof(pointer))
+    let raw = alloc0(size + sizeof(pointer))
     return cast[pointer](cast[int](raw) + sizeof(Smeef))
 
-proc register(handle: Smeef, name: cstring, f: pointer) {.cdecl.} =
-    collection.funcTable[handle][$name] = f
+proc register(smeef: Smeef, name: cstring, f: pointer) {.cdecl.} =
+    collection.funcTable[smeef][$name] = f
 
-proc lookup(handle: Zarb, name: cstring): pointer {.cdecl.} =
+func getSmeef(zarb: Zarb): Smeef =
     # oh this is cursed
-    let index = cast[ptr Smeef](cast[int](handle) - sizeof(Smeef))[]
-    collection.funcTable[index][$name]
+    cast[ptr Smeef](cast[int](zarb) - sizeof(Smeef))[]
+
+proc lookup(zarb: Zarb, name: cstring): pointer {.cdecl.} =
+    let smeef = zarb.getSmeef()
+    result = collection.funcTable[smeef][$name]
 
 type
     initializeProc = proc(smeef: Smeef, loader: Loader) {.cdecl.}
@@ -104,16 +107,17 @@ proc main() =
     # set up sdl and window and such
     assert sdl2.init(INIT_EVERYTHING)
     assert ttfInit()
-    discard mixer.init(MIX_INIT_OGG or MIX_INIT_MP3)
 
-    let
-        audioFrequency: cint = 22050 # Hz
-        audioFormat: uint16 = AUDIO_S16 # 16bit audio; assuming Little-Endian
-        audioChannels: cint = 1 # mono
-        audioChunksize: cint = 512
-    assert mixer.openAudio(audioFrequency, audioFormat, audioChannels, audioChunksize) == 0
-    defer: mixer.closeAudio()
-    hookMusic(nil, nil)
+    # discard mixer.init(MIX_INIT_OGG or MIX_INIT_MP3)
+
+    # let
+    #     audioFrequency: cint = 22050 # Hz
+    #     audioFormat: uint16 = AUDIO_S16 # 16bit audio; assuming Little-Endian
+    #     audioChannels: cint = 1 # mono
+    #     audioChunksize: cint = 512
+    # assert mixer.openAudio(audioFrequency, audioFormat, audioChannels, audioChunksize) == 0
+    # defer: mixer.closeAudio()
+    # hookMusic(nil, nil)
     # hookMusic(audioHook, nil)
 
     # kernel tracking stuff
@@ -124,6 +128,7 @@ proc main() =
 
     # set up system modules
     let graphicsSmeef = newSmeef()
+    graphicsSmeef.desc.name = "graphics"
     graphics.initialize(graphicsSmeef, loader)
     let graphics = graphics.construct(loader, nil)
     setSmeef(graphics, graphicsSmeef)
@@ -131,6 +136,7 @@ proc main() =
     defer: graphics.cleanup()
 
     let inputSmeef = newSmeef()
+    inputSmeef.desc.name = "input"
     input.initialize(inputSmeef, loader)
     let input = input.construct(loader, nil)
     setSmeef(input, inputSmeef)

@@ -37,7 +37,7 @@ proc wasMouseReleased(module: InputModule, button: int): bool {.cdecl.}
 
 # standard module hooks
 
-proc initialize*(smeef: Smeef, loader: Loader) =
+proc initialize*(smeef: Smeef, loader: Loader) {.cdecl.} =
     loader.register(smeef, "isKeyHeld", isKeyHeld)
     loader.register(smeef, "wasKeyPressed", wasKeyPressed)
     loader.register(smeef, "wasKeyReleased", wasKeyReleased)
@@ -45,13 +45,13 @@ proc initialize*(smeef: Smeef, loader: Loader) =
     loader.register(smeef, "wasMousePressed", wasMousePressed)
     loader.register(smeef, "wasMouseReleased", wasMouseReleased)
 
-proc construct*(loader: Loader, imports: ptr Imports): InputModule =
+proc construct*(loader: Loader, imports: ptr Imports): InputModule {.cdecl.} =
     result = cast[InputModule](loader.allocate(sizeof(InputModuleObj)))
 
-proc start*(module: InputModule) =
+proc start*(module: InputModule) {.cdecl.} =
     discard
 
-proc cleanup*(module: InputModule) =
+proc cleanup*(module: InputModule) {.cdecl.} =
     discard
 
 # system level special hooks

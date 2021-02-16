@@ -22,15 +22,15 @@ proc drawText*(graphics: GraphicsModule, pos: Vec, text: cstring) {.cdecl.}
 
 # standard module hooks
 
-proc initialize*(smeef: Smeef, loader: Loader) =
+proc initialize*(smeef: Smeef, loader: Loader) {.cdecl.} =
     loader.register(smeef, "setRGB", setRGB)
     loader.register(smeef, "drawBox", drawBox)
     loader.register(smeef, "drawText", drawText)
 
-proc construct*(loader: Loader, imports: ptr Imports): GraphicsModule =
+proc construct*(loader: Loader, imports: ptr Imports): GraphicsModule {.cdecl.} =
     result = cast[GraphicsModule](loader.allocate(sizeof(GraphicsModuleObj)))
 
-proc start*(module: GraphicsModule) =
+proc start*(module: GraphicsModule) {.cdecl.} =
     let (winW, winH) = (1200, 900)
     module.window = createWindow("ToolboxBox",
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
@@ -43,7 +43,7 @@ proc start*(module: GraphicsModule) =
 
     module.font = openFont("assets/Inconsolata-Regular.ttf", 24)
 
-proc cleanup*(module: GraphicsModule) =
+proc cleanup*(module: GraphicsModule) {.cdecl.} =
     module.font.close()
     module.render.destroy()
     module.window.destroy()
