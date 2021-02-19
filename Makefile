@@ -12,10 +12,10 @@ DEBUG=
 out/SDL2.dll: assets/sdl_dlls/SDL2.dll
 	cp  assets/sdl_dlls/* out/
 
-out/kernel.exe: src/kernel.nim src/kernel.nim.cfg src/syscalls/*
+out/kernel.exe: src/kernel.nim nim.cfg src/kernel.nim.cfg src/syscalls/*
 	nim c $(DEBUG) -o:out/kernel.exe src/kernel.nim
 
-out/testlib.dll: src/testlib.nim
+out/testlib.dll: src/testlib.nim nim.cfg
 	nim c $(DEBUG) -o:out/testlib.dll --app:lib --gc:arc src/testlib.nim
-out/gui.dll: src/gui.nim
+out/gui.dll: src/gui.nim nim.cfg
 	nim c $(DEBUG) -o:out/gui.dll --app:lib --gc:arc src/gui.nim
