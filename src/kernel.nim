@@ -2,13 +2,13 @@ import dynlib
 import math
 import sdl2
 import sdl2/[
-    audio,
     mixer,
     ttf,
 ]
 import tables
 
 import syscalls/[
+    audio,
     common,
     graphics,
     input,
@@ -93,31 +93,11 @@ proc loadZarb(smeef: Smeef, loader: Loader, importSeq: seq[Zarb]): Zarb =
     if start != nil:
         start(result)
 
-var audioTime = 0
-proc audioHook(udata: pointer, rawstream: ptr uint8, size: cint) {.cdecl.} =
-    let stream = cast[ptr UncheckedArray[int16]](rawstream)
-    let count = size div 2 # bytes -> samples
-    let volume = 0.5
-    for i in 0..<count:
-        stream[i] = int16(volume * 256 * 256 * sin(440.0 / 22050.0 * (i + audioTime).float))
-    audioTime += count
-
 proc main() =
     # set up sdl and window and such
     assert sdl2.init(INIT_EVERYTHING)
     assert ttfInit()
-
     discard mixer.init(MIX_INIT_OGG or MIX_INIT_MP3)
-
-    let
-        audioFrequency: cint = 22050 # Hz
-        audioFormat: uint16 = AUDIO_S16 # 16bit audio; assuming Little-Endian
-        audioChannels: cint = 1 # mono
-        audioChunksize: cint = 512
-    assert mixer.openAudio(audioFrequency, audioFormat, audioChannels, audioChunksize) == 0
-    defer: mixer.closeAudio()
-    hookMusic(audioHook, nil)
-    # hookMusic(nil, nil) # to stop music
 
     # kernel tracking stuff
     let loader = cast[Loader](alloc(sizeof(LoaderObj)))
@@ -141,6 +121,14 @@ proc main() =
     setSmeef(input, inputSmeef)
     input.start()
     defer: input.cleanup()
+
+    let audioSmeef = newSmeef()
+    audioSmeef.desc.name = "audio"
+    audio.initialize(audioSmeef, loader)
+    let audio = audio.construct(loader, nil)
+    setSmeef(audio, audioSmeef)
+    audio.start()
+    defer: audio.cleanup()
 
     # now user modules
     let
