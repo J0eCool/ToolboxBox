@@ -9,8 +9,9 @@ clean:
 DEBUG=
 # DEBUG=--debugger:native
 
+# this doesn't work in a non-mingw shell on windows because cp doesn't exist
 out/SDL2.dll: assets/sdl_dlls/SDL2.dll
-	cp  assets/sdl_dlls/* out/
+	cp assets/sdl_dlls/* out/
 
 out/kernel.exe: src/kernel.nim nim.cfg src/kernel.nim.cfg src/syscalls/*
 	nim c $(DEBUG) -o:out/kernel.exe src/kernel.nim
